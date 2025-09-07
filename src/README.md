@@ -20,3 +20,4 @@ This project simulates a small-scale industrial inspection system using **C# WPF
 ## Progress Log
 - **Day 1:** Repo + WPF MVVM skeleton.
 - **Day 2:** Basic UI shell (header, controls, status), dummy Start/Stop commands wired via MVVM.
+- **Day 3:** Integrated webcam via Emgu CV; live preview in WPF using BGRA32 frames bound to `Image`.

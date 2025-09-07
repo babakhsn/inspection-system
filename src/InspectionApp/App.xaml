@@ -2,8 +2,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:InspectionApp"
+             xmlns:conv="clr-namespace:InspectionApp.Converters"
              StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <Style TargetType="Button">
             <Setter Property="Margin" Value="0,0,0,6"/>
             <Setter Property="Padding" Value="10,6"/>
