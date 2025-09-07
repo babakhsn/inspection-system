@@ -53,6 +53,12 @@
                                 Command="{Binding StopCaptureCommand}"
                                 Width="80"/>
                     </StackPanel>
+                    <Button Content="Save Frame"
+                        Command="{Binding CaptureFrameCommand}"
+                        ToolTip="Save current frame to disk"/>
+
+                    <TextBlock Text="Save Folder" Margin="0,12,0,4" />
+                    <TextBox Text="{Binding CaptureDirectory, UpdateSourceTrigger=PropertyChanged}" />
 
                     <!-- Future placeholders (disabled for now to show intent/consistency) -->
                     <TextBlock Text="Filter (Coming Day 6)" Margin="0,12,0,4" Opacity="0.6"/>

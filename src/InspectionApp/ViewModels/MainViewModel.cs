@@ -5,6 +5,8 @@ using System.Windows.Media.Imaging;
 using InspectionApp.Common;
 using InspectionApp.Imaging;
 using InspectionCore.Camera;
+using System.IO;
+using Serilog;
 
 namespace InspectionApp.ViewModels
 {
@@ -18,6 +20,9 @@ namespace InspectionApp.ViewModels
         private string _statusMessage = "Ready";
         private DateTime _lastAction = DateTime.Now;
         private BitmapSource? _liveFrame;
+        private string _captureDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+            "InspectionSystem", "Captures");
 
         public string Title
         {
@@ -34,6 +39,7 @@ namespace InspectionApp.ViewModels
                 {
                     StartCaptureCommand.RaiseCanExecuteChanged();
                     StopCaptureCommand.RaiseCanExecuteChanged();
+                    CaptureFrameCommand.RaiseCanExecuteChanged();
                 }
             }
         }
@@ -59,6 +65,14 @@ namespace InspectionApp.ViewModels
         public RelayCommand StartCaptureCommand { get; }
         public RelayCommand StopCaptureCommand { get; }
 
+        public string CaptureDirectory
+        {
+            get => _captureDirectory;
+            set => SetProperty(ref _captureDirectory, value);
+        }
+
+        public RelayCommand CaptureFrameCommand { get; }
+
         public MainViewModel()
         {
             _camera = new EmguCameraService();
@@ -66,6 +80,17 @@ namespace InspectionApp.ViewModels
 
             StartCaptureCommand = new RelayCommand(async () => await OnStartCaptureAsync(), CanStart);
             StopCaptureCommand = new RelayCommand(async () => await OnStopCaptureAsync(), CanStop);
+            CaptureFrameCommand = new RelayCommand(async () => await OnCaptureAsync(), CanCapture);
+
+            try
+            {
+                Directory.CreateDirectory(CaptureDirectory);
+                Log.Information("Capture directory set to {Dir}", CaptureDirectory);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to create capture directory {Dir}", CaptureDirectory);
+            }
         }
 
         private bool CanStart() => !IsCapturing;
@@ -113,6 +138,56 @@ namespace InspectionApp.ViewModels
             );
 
             LiveFrame = bs; // triggers PropertyChanged → UI updates
+        }
+
+        private bool CanCapture() => LiveFrame is not null;
+
+        private static Task SaveBitmapSourceAsync(BitmapSource bitmap, string path, string format = "png", int quality = 90)
+        {
+            return Task.Run(() =>
+            {
+                BitmapEncoder encoder = format.ToLowerInvariant() switch
+                {
+                    "jpg" or "jpeg" => new JpegBitmapEncoder { QualityLevel = quality },
+                    "bmp" => new BmpBitmapEncoder(),
+                    "tif" or "tiff" => new TiffBitmapEncoder(),
+                    "png" => new PngBitmapEncoder(),
+                    _ => new PngBitmapEncoder()
+                };
+
+                encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var fs = File.Open(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+                encoder.Save(fs);
+            });
+        }
+
+        private async Task OnCaptureAsync()
+        {
+            try
+            {
+                if (LiveFrame is null)
+                {
+                    StatusMessage = "No frame available to capture.";
+                    return;
+                }
+
+                Directory.CreateDirectory(CaptureDirectory);
+
+                var ts = DateTime.Now;
+                var fileName = $"capture_{ts:yyyyMMdd_HHmmss_fff}.png";
+                var fullPath = Path.Combine(CaptureDirectory, fileName);
+
+                await SaveBitmapSourceAsync(LiveFrame, fullPath, format: "png");
+
+                LastAction = ts;
+                StatusMessage = $"Saved: {fileName}";
+                Log.Information("Frame saved to {Path}", fullPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to save frame");
+                StatusMessage = $"Error saving frame: {ex.Message}";
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using System.Runtime.InteropServices;
+using Serilog;
 
 namespace InspectionCore.Camera
 {
@@ -31,6 +32,7 @@ namespace InspectionCore.Camera
             if (!_capture.IsOpened)
                 throw new InvalidOperationException($"Cannot open camera index {cameraIndex}.");
 
+            Log.Information("Camera opened: index={CameraIndex}, width={Width}, height={Height}", cameraIndex, Width, Height);
             // Initialize dimensions
             Width = (int)_capture.Get(CapProp.FrameWidth);
             Height = (int)_capture.Get(CapProp.FrameHeight);
@@ -50,21 +52,26 @@ namespace InspectionCore.Camera
 
             while (!ct.IsCancellationRequested)
             {
-                _capture!.Read(frame);
-                if (frame.IsEmpty) continue;
+                try
+                {
+                    _capture!.Read(frame);
+                    if (frame.IsEmpty) continue;
 
-                // Convert to BGRA so WPF can consume easily
-                CvInvoke.CvtColor(frame, bgra, ColorConversion.Bgr2Bgra);
+                    // Convert to BGRA so WPF can consume easily
+                    CvInvoke.CvtColor(frame, bgra, ColorConversion.Bgr2Bgra);
 
-                // Copy to managed array
-                int byteCount = bgra.Rows * bgra.Cols * bgra.ElementSize;
-                var buffer = new byte[byteCount];
-                //bgra.GetArray(out byte[]? tmp);
-                //// GetArray allocates; when available, prefer Marshal.Copy from bgra.DataPointer for perf.
-                //Buffer.BlockCopy(tmp, 0, buffer, 0, byteCount);
-                Marshal.Copy(bgra.DataPointer, buffer, 0, byteCount);
+                    // Copy to managed array
+                    int byteCount = bgra.Rows * bgra.Cols * bgra.ElementSize;
+                    var buffer = new byte[byteCount];
+                    // GetArray allocates; when available, prefer Marshal.Copy from bgra.DataPointer for perf.
+                    Marshal.Copy(bgra.DataPointer, buffer, 0, byteCount);
 
-                FrameCaptured?.Invoke(this, buffer);
+                    FrameCaptured?.Invoke(this, buffer);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error in camera capture loop");
+                }
             }
         }
 
@@ -83,11 +90,13 @@ namespace InspectionCore.Camera
             _cts?.Dispose(); _cts = null;
 
             _capture?.Dispose(); _capture = null;
+            Log.Information("Camera stopped/disposed");
         }
 
         public async ValueTask DisposeAsync()
         {
             await StopAsync();
+            Log.Information("Camera stopped/disposed");
         }
     }
 }
