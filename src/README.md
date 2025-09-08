@@ -22,4 +22,5 @@ This project simulates a small-scale industrial inspection system using **C# WPF
 - **Day 2:** Basic UI shell (header, controls, status), dummy Start/Stop commands wired via MVVM.
 - **Day 3:** Integrated webcam via Emgu CV; live preview in WPF using BGRA32 frames bound to `Image`.
 - **Day 4:** Added Serilog logging (console + rolling file). Implemented frame capture with PNG/JPEG encoding and default save folder (`Pictures/InspectionSystem/Captures`).
+- **Day 5:** Refactored ViewModel for DI (camera/clock/filesystem/framesaver). Introduced small abstractions for time & file I/O. Added unit tests with xUnit (VM behavior + PNG saving).
 

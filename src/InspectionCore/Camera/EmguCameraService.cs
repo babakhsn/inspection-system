@@ -29,6 +29,7 @@ namespace InspectionCore.Camera
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
             _capture = new VideoCapture(cameraIndex, VideoCapture.API.Any);
+            System.Diagnostics.Debug.WriteLine("Capture: " + _capture);
             if (!_capture.IsOpened)
                 throw new InvalidOperationException($"Cannot open camera index {cameraIndex}.");
 

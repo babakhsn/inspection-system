@@ -7,12 +7,16 @@ using InspectionApp.Imaging;
 using InspectionCore.Camera;
 using System.IO;
 using Serilog;
+using InspectionCore.Abstractions;
 
 namespace InspectionApp.ViewModels
 {
     public class MainViewModel : ViewModelBase
     {
         private readonly ICameraService _camera;
+        private readonly IClock _clock;
+        private readonly IFrameSaver _frameSaver;
+        private readonly IFileSystem _fs;
         private CancellationTokenSource? _linkedCts;
 
         private string _title = "Mini Inspection System";
@@ -73,9 +77,12 @@ namespace InspectionApp.ViewModels
 
         public RelayCommand CaptureFrameCommand { get; }
 
-        public MainViewModel()
+        public MainViewModel(ICameraService camera, IClock clock, IFrameSaver frameSaver, IFileSystem fs)
         {
-            _camera = new EmguCameraService();
+            _camera = camera;
+            _clock = clock;
+            _frameSaver = frameSaver;
+            _fs = fs;
             _camera.FrameCaptured += OnFrameCaptured;
 
             StartCaptureCommand = new RelayCommand(async () => await OnStartCaptureAsync(), CanStart);
@@ -84,7 +91,7 @@ namespace InspectionApp.ViewModels
 
             try
             {
-                Directory.CreateDirectory(CaptureDirectory);
+                _fs.CreateDirectory(CaptureDirectory);
                 Log.Information("Capture directory set to {Dir}", CaptureDirectory);
             }
             catch (Exception ex)
@@ -103,7 +110,7 @@ namespace InspectionApp.ViewModels
                 _linkedCts = new CancellationTokenSource();
                 await _camera.StartAsync(0, _linkedCts.Token);
                 IsCapturing = true;
-                LastAction = DateTime.Now;
+                LastAction = _clock.Now;
                 StatusMessage = "Live capture started.";
             }
             catch (Exception ex)
@@ -119,7 +126,7 @@ namespace InspectionApp.ViewModels
                 _linkedCts?.Cancel();
                 await _camera.StopAsync();
                 IsCapturing = false;
-                LastAction = DateTime.Now;
+                LastAction = _clock.Now;
                 StatusMessage = "Live capture stopped.";
             }
             catch (Exception ex)
@@ -173,11 +180,11 @@ namespace InspectionApp.ViewModels
 
                 Directory.CreateDirectory(CaptureDirectory);
 
-                var ts = DateTime.Now;
+                var ts = _clock.Now;
                 var fileName = $"capture_{ts:yyyyMMdd_HHmmss_fff}.png";
                 var fullPath = Path.Combine(CaptureDirectory, fileName);
 
-                await SaveBitmapSourceAsync(LiveFrame, fullPath, format: "png");
+                await _frameSaver.SaveAsync(LiveFrame, fullPath, format: "png", quality: 90);
 
                 LastAction = ts;
                 StatusMessage = $"Saved: {fileName}";
