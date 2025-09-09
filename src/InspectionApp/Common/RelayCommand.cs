@@ -14,9 +14,11 @@ namespace InspectionApp.Common
             _canExecute = canExecute;
         }
 
+        //implement of ICommand
         public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
+        //implement of ICommand
         public void Execute(object? parameter) => _execute();
-
+        //implement of ICommand
         public event EventHandler? CanExecuteChanged;
         public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }

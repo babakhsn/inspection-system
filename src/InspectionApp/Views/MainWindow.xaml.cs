@@ -1,8 +1,9 @@
-﻿using System.Windows;
-using InspectionApp.Imaging;
+﻿using InspectionApp.Imaging;
 using InspectionApp.ViewModels;
 using InspectionCore.Abstractions;
 using InspectionCore.Camera;
+using InspectionCore.Processing;
+using System.Windows;
 
 namespace InspectionApp.Views
 {
@@ -16,7 +17,8 @@ namespace InspectionApp.Views
                 camera: new EmguCameraService(),
                 clock: new SystemClock(),
                 frameSaver: new WpfFrameSaver(new RealFileSystem()),
-                fs: new RealFileSystem());
+                fs: new RealFileSystem(),
+                processing: new EmguProcessingService());
 
             DataContext = vm;
         }

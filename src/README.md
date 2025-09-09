@@ -23,4 +23,5 @@ This project simulates a small-scale industrial inspection system using **C# WPF
 - **Day 3:** Integrated webcam via Emgu CV; live preview in WPF using BGRA32 frames bound to `Image`.
 - **Day 4:** Added Serilog logging (console + rolling file). Implemented frame capture with PNG/JPEG encoding and default save folder (`Pictures/InspectionSystem/Captures`).
 - **Day 5:** Refactored ViewModel for DI (camera/clock/filesystem/framesaver). Introduced small abstractions for time & file I/O. Added unit tests with xUnit (VM behavior + PNG saving).
+- **Day 6:** Added OpenCV filters (None, Grayscale, Edge Detection/Canny). Filter dropdown in UI with live processing and threshold controls for Canny. Processing pipeline stays BGRA32-in/BGRA32-out.
 

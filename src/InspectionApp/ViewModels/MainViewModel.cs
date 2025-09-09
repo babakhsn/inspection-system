@@ -8,6 +8,7 @@ using InspectionCore.Camera;
 using System.IO;
 using Serilog;
 using InspectionCore.Abstractions;
+using InspectionCore.Processing;
 
 namespace InspectionApp.ViewModels
 {
@@ -17,6 +18,7 @@ namespace InspectionApp.ViewModels
         private readonly IClock _clock;
         private readonly IFrameSaver _frameSaver;
         private readonly IFileSystem _fs;
+        private readonly IProcessingService _processing;
         private CancellationTokenSource? _linkedCts;
 
         private string _title = "Mini Inspection System";
@@ -66,6 +68,30 @@ namespace InspectionApp.ViewModels
             set => SetProperty(ref _liveFrame, value);
         }
 
+        // Filter UI state
+        private FilterType _selectedFilter = FilterType.None;
+        public FilterType SelectedFilter
+        {
+            get => _selectedFilter;
+            set => SetProperty(ref _selectedFilter, value);
+        }
+
+        // Edge detection parameters
+        private int _cannyThreshold1 = 100;
+        private int _cannyThreshold2 = 200;
+
+        public int CannyThreshold1
+        {
+            get => _cannyThreshold1;
+            set => SetProperty(ref _cannyThreshold1, value);
+        }
+
+        public int CannyThreshold2
+        {
+            get => _cannyThreshold2;
+            set => SetProperty(ref _cannyThreshold2, value);
+        }
+
         public RelayCommand StartCaptureCommand { get; }
         public RelayCommand StopCaptureCommand { get; }
 
@@ -77,12 +103,20 @@ namespace InspectionApp.ViewModels
 
         public RelayCommand CaptureFrameCommand { get; }
 
-        public MainViewModel(ICameraService camera, IClock clock, IFrameSaver frameSaver, IFileSystem fs)
+        public MainViewModel(
+            ICameraService camera, 
+            IClock clock, 
+            IFrameSaver frameSaver, 
+            IFileSystem fs, 
+            IProcessingService processing
+            )
         {
             _camera = camera;
             _clock = clock;
             _frameSaver = frameSaver;
             _fs = fs;
+            _processing = processing;
+
             _camera.FrameCaptured += OnFrameCaptured;
 
             StartCaptureCommand = new RelayCommand(async () => await OnStartCaptureAsync(), CanStart);
@@ -135,16 +169,33 @@ namespace InspectionApp.ViewModels
             }
         }
 
-        private void OnFrameCaptured(object? sender, byte[]? buffer)
+        private async void OnFrameCaptured(object? sender, byte[]? buffer)
         {
             if (buffer is null || !_camera.IsRunning) return;
 
-            // Create a frozen BitmapSource on the background thread; safe for UI binding
-            var bs = BitmapSourceFactory.FromBgra32(
-                buffer, _camera.Width, _camera.Height, _camera.Stride
-            );
+            try
+            {
+                // Apply selected filter (BGRA32 -> BGRA32)
+                var processed = await _processing.ApplyAsync(
+                    buffer, _camera.Width, _camera.Height, _camera.Stride,
+                    SelectedFilter, CannyThreshold1, CannyThreshold2);
 
-            LiveFrame = bs; // triggers PropertyChanged → UI updates
+                var bs = BitmapSourceFactory.FromBgra32(
+                    processed, _camera.Width, _camera.Height, _camera.Stride);
+
+                LiveFrame = bs;
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Error applying filter");
+            }
+
+            //// Create a frozen BitmapSource on the background thread; safe for UI binding
+            //var bs = BitmapSourceFactory.FromBgra32(
+            //    buffer, _camera.Width, _camera.Height, _camera.Stride
+            //);
+
+            //LiveFrame = bs; // triggers PropertyChanged → UI updates
         }
 
         private bool CanCapture() => LiveFrame is not null;
@@ -196,5 +247,7 @@ namespace InspectionApp.ViewModels
                 StatusMessage = $"Error saving frame: {ex.Message}";
             }
         }
+
+
     }
 }
