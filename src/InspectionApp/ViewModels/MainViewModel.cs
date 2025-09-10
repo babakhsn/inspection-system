@@ -19,6 +19,8 @@ namespace InspectionApp.ViewModels
         private readonly IFrameSaver _frameSaver;
         private readonly IFileSystem _fs;
         private readonly IProcessingService _processing;
+        private BitmapSource? _originalFrame;
+        private BitmapSource? _processedFrame;
         private CancellationTokenSource? _linkedCts;
 
         private string _title = "Mini Inspection System";
@@ -90,6 +92,22 @@ namespace InspectionApp.ViewModels
         {
             get => _cannyThreshold2;
             set => SetProperty(ref _cannyThreshold2, value);
+        }
+
+        public BitmapSource? OriginalFrame
+        {
+            get => _originalFrame;
+            set => SetProperty(ref _originalFrame, value);
+        }
+
+        public BitmapSource? ProcessedFrame
+        {
+            get => _processedFrame;
+            set
+            {
+                if (SetProperty(ref _processedFrame, value))
+                    CaptureFrameCommand.RaiseCanExecuteChanged();
+            }
         }
 
         public RelayCommand StartCaptureCommand { get; }
@@ -175,19 +193,26 @@ namespace InspectionApp.ViewModels
 
             try
             {
-                // Apply selected filter (BGRA32 -> BGRA32)
-                var processed = await _processing.ApplyAsync(
+                // Raw
+                var raw = Imaging.BitmapSourceFactory.FromBgra32(
+                    buffer, _camera.Width, _camera.Height, _camera.Stride);
+                OriginalFrame = raw;
+
+                // Processed
+                var processedBytes = await _processing.ApplyAsync(
                     buffer, _camera.Width, _camera.Height, _camera.Stride,
                     SelectedFilter, CannyThreshold1, CannyThreshold2);
 
-                var bs = BitmapSourceFactory.FromBgra32(
-                    processed, _camera.Width, _camera.Height, _camera.Stride);
+                var processed = Imaging.BitmapSourceFactory.FromBgra32(
+                    processedBytes, _camera.Width, _camera.Height, _camera.Stride);
+                ProcessedFrame = processed;
 
-                LiveFrame = bs;
+                // Keep LiveFrame for backward compatibility (e.g., if something else binds to it)
+                LiveFrame = processed;
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "Error applying filter");
+                Log.Error(ex, "Error applying filter");
             }
 
             //// Create a frozen BitmapSource on the background thread; safe for UI binding
@@ -223,19 +248,17 @@ namespace InspectionApp.ViewModels
         {
             try
             {
-                if (LiveFrame is null)
+                if (ProcessedFrame is null)
                 {
-                    StatusMessage = "No frame available to capture.";
+                    StatusMessage = "No processed frame to save.";
                     return;
                 }
-
-                Directory.CreateDirectory(CaptureDirectory);
 
                 var ts = _clock.Now;
                 var fileName = $"capture_{ts:yyyyMMdd_HHmmss_fff}.png";
                 var fullPath = Path.Combine(CaptureDirectory, fileName);
 
-                await _frameSaver.SaveAsync(LiveFrame, fullPath, format: "png", quality: 90);
+                await _frameSaver.SaveAsync(ProcessedFrame, fullPath, "png", 90);
 
                 LastAction = ts;
                 StatusMessage = $"Saved: {fileName}";

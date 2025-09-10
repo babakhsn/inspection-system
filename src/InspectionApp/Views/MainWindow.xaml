@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:InspectionApp.ViewModels"
         xmlns:p="clr-namespace:InspectionCore.Processing;assembly=InspectionCore"
-        Title="InspectionApp" Height="600" Width="600">
+        Title="InspectionApp" Height="700" Width="600">
     <!--<Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>-->
@@ -63,6 +63,7 @@
                         <ComboBoxItem Content="None"          Tag="{x:Static p:FilterType.None}" />
                         <ComboBoxItem Content="Grayscale"     Tag="{x:Static p:FilterType.Grayscale}" />
                         <ComboBoxItem Content="Edge Detection" Tag="{x:Static p:FilterType.EdgeDetection}" />
+                        <ComboBoxItem Content="Defect Detection" Tag="{x:Static p:FilterType.DefectDetection}" />
                     </ComboBox>
 
                     <!-- Edge Detection parameters -->
@@ -70,6 +71,9 @@
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedFilter}" Value="{x:Static p:FilterType.DefectDetection}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding SelectedFilter}" Value="{x:Static p:FilterType.EdgeDetection}">
                                         <Setter Property="Visibility" Value="Visible"/>
                                     </DataTrigger>
@@ -83,6 +87,8 @@
                             </Style>
                         </StackPanel.Style>
 
+                        <TextBlock Text="Defect Detection Settings" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                        <TextBlock Text="Tip: Thin scratches show after thresholding &amp; slight dilation." Opacity="0.7" FontSize="11"/>
                         <TextBlock Text="Canny Threshold 1" Margin="0,4,0,2"/>
                         <Slider Minimum="0" Maximum="255"
             Value="{Binding CannyThreshold1}" TickFrequency="5" IsSnapToTickEnabled="True"/>
@@ -105,22 +111,39 @@
             </Border>
 
             <!-- Camera Placeholder -->
+            <!-- Right Preview Panel -->
             <Border Grid.Column="1" Margin="12"
-                    Background="#FAFAFB" CornerRadius="8"
-                    BorderBrush="#E5E5EA" BorderThickness="1"
-                    Padding="12" >
+        Background="#FAFAFB" CornerRadius="8"
+        BorderBrush="#E5E5EA" BorderThickness="1"
+        Padding="12">
                 <Grid>
-                    <Image Source="{Binding LiveFrame}"
-               Stretch="Uniform"
-               HorizontalAlignment="Stretch"
-               VerticalAlignment="Stretch"/>
-                    <TextBlock Text="No signal"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="16" Opacity="0.4"
-                   Visibility="{Binding LiveFrame, Converter={StaticResource NullToVisibilityConverter}}"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- RAW -->
+                    <DockPanel Grid.Column="0" LastChildFill="True" Margin="0,0,6,0">
+                        <TextBlock DockPanel.Dock="Top" Text="Raw" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <Grid>
+                            <Image Source="{Binding OriginalFrame}" Stretch="Uniform"/>
+                            <TextBlock Text="No signal" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4"
+                           Visibility="{Binding OriginalFrame, Converter={StaticResource NullToVisibilityConverter}}"/>
+                        </Grid>
+                    </DockPanel>
+
+                    <!-- PROCESSED -->
+                    <DockPanel Grid.Column="1" LastChildFill="True" Margin="6,0,0,0">
+                        <TextBlock DockPanel.Dock="Top" Text="Processed" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <Grid>
+                            <Image Source="{Binding ProcessedFrame}" Stretch="Uniform"/>
+                            <TextBlock Text="No signal" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4"
+                           Visibility="{Binding ProcessedFrame, Converter={StaticResource NullToVisibilityConverter}}"/>
+                        </Grid>
+                    </DockPanel>
                 </Grid>
             </Border>
+
         </Grid>
     </DockPanel>
     <!--<Grid>
