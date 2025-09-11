@@ -2,6 +2,7 @@
 using InspectionApp.ViewModels;
 using InspectionCore.Abstractions;
 using InspectionCore.Camera;
+using InspectionCore.Motion;
 using InspectionCore.Processing;
 using System.Windows;
 
@@ -18,7 +19,10 @@ namespace InspectionApp.Views
                 clock: new SystemClock(),
                 frameSaver: new WpfFrameSaver(new RealFileSystem()),
                 fs: new RealFileSystem(),
-                processing: new EmguProcessingService());
+                processing: new EmguProcessingService(),
+                motor: new MotorSimulator(),
+                viewport: new EmguViewportTransformer()
+                );
 
             DataContext = vm;
         }

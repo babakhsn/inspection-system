@@ -9,6 +9,7 @@ using System.IO;
 using Serilog;
 using InspectionCore.Abstractions;
 using InspectionCore.Processing;
+using InspectionCore.Motion;
 
 namespace InspectionApp.ViewModels
 {
@@ -19,6 +20,11 @@ namespace InspectionApp.ViewModels
         private readonly IFrameSaver _frameSaver;
         private readonly IFileSystem _fs;
         private readonly IProcessingService _processing;
+        private readonly IMotorService _motor;
+        private readonly IViewportTransformer _viewport;
+        private double _panXPercent;
+        private double _panYPercent;
+        private double _zoomFactor = 1.0;
         private BitmapSource? _originalFrame;
         private BitmapSource? _processedFrame;
         private CancellationTokenSource? _linkedCts;
@@ -110,6 +116,38 @@ namespace InspectionApp.ViewModels
             }
         }
 
+        public double PanXPercent
+        {
+            get => _panXPercent;
+            set
+            {
+                if (SetProperty(ref _panXPercent, value))
+                    _motor.SetPanPercent(_panXPercent, _panYPercent);
+            }
+        }
+
+        public double PanYPercent
+        {
+            get => _panYPercent;
+            set
+            {
+                if (SetProperty(ref _panYPercent, value))
+                    _motor.SetPanPercent(_panXPercent, _panYPercent);
+            }
+        }
+
+        public double ZoomFactor
+        {
+            get => _zoomFactor;
+            set
+            {
+                if (SetProperty(ref _zoomFactor, Math.Max(1.0, value)))
+                    _motor.SetZoom(_zoomFactor);
+            }
+        }
+
+
+        public RelayCommand ResetMotorCommand { get; }
         public RelayCommand StartCaptureCommand { get; }
         public RelayCommand StopCaptureCommand { get; }
 
@@ -126,7 +164,9 @@ namespace InspectionApp.ViewModels
             IClock clock, 
             IFrameSaver frameSaver, 
             IFileSystem fs, 
-            IProcessingService processing
+            IProcessingService processing,
+            IMotorService motor,
+            IViewportTransformer viewport
             )
         {
             _camera = camera;
@@ -134,12 +174,21 @@ namespace InspectionApp.ViewModels
             _frameSaver = frameSaver;
             _fs = fs;
             _processing = processing;
+            _motor = motor;
+            _viewport = viewport;
 
             _camera.FrameCaptured += OnFrameCaptured;
+            _motor.StateChanged += (_, s) =>
+            {
+                SetProperty(ref _panXPercent, s.PanXPercent, nameof(PanXPercent));
+                SetProperty(ref _panYPercent, s.PanYPercent, nameof(PanYPercent));
+                SetProperty(ref _zoomFactor, s.ZoomFactor, nameof(ZoomFactor));
+            };
 
             StartCaptureCommand = new RelayCommand(async () => await OnStartCaptureAsync(), CanStart);
             StopCaptureCommand = new RelayCommand(async () => await OnStopCaptureAsync(), CanStop);
             CaptureFrameCommand = new RelayCommand(async () => await OnCaptureAsync(), CanCapture);
+            ResetMotorCommand = new RelayCommand(OnResetMotor);
 
             try
             {
@@ -193,34 +242,32 @@ namespace InspectionApp.ViewModels
 
             try
             {
-                // Raw
-                var raw = Imaging.BitmapSourceFactory.FromBgra32(
+                // 1) Show RAW immediately (original)
+                var raw = BitmapSourceFactory.FromBgra32(
                     buffer, _camera.Width, _camera.Height, _camera.Stride);
                 OriginalFrame = raw;
 
-                // Processed
-                var processedBytes = await _processing.ApplyAsync(
+                // 2) Apply motor (pan/zoom) to BGRA
+                var motorState = _motor.State;
+                var transformedBytes = await _viewport.ApplyAsync(
                     buffer, _camera.Width, _camera.Height, _camera.Stride,
+                    motorState.PanXPercent, motorState.PanYPercent, motorState.ZoomFactor);
+
+                // 3) Process transformed frame with selected filter
+                var processedBytes = await _processing.ApplyAsync(
+                    transformedBytes, _camera.Width, _camera.Height, _camera.Stride,
                     SelectedFilter, CannyThreshold1, CannyThreshold2);
 
-                var processed = Imaging.BitmapSourceFactory.FromBgra32(
+                var processed = BitmapSourceFactory.FromBgra32(
                     processedBytes, _camera.Width, _camera.Height, _camera.Stride);
-                ProcessedFrame = processed;
 
-                // Keep LiveFrame for backward compatibility (e.g., if something else binds to it)
-                LiveFrame = processed;
+                ProcessedFrame = processed;
+                LiveFrame = processed; // keep legacy binding behavior
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error applying filter");
+                Log.Error(ex, "Error in motor transform or processing");
             }
-
-            //// Create a frozen BitmapSource on the background thread; safe for UI binding
-            //var bs = BitmapSourceFactory.FromBgra32(
-            //    buffer, _camera.Width, _camera.Height, _camera.Stride
-            //);
-
-            //LiveFrame = bs; // triggers PropertyChanged → UI updates
         }
 
         private bool CanCapture() => LiveFrame is not null;
@@ -270,6 +317,15 @@ namespace InspectionApp.ViewModels
                 StatusMessage = $"Error saving frame: {ex.Message}";
             }
         }
+
+        private void OnResetMotor()
+        {
+            _motor.Reset();
+            PanXPercent = 0;
+            PanYPercent = 0;
+            ZoomFactor = 1.0;
+        }
+
 
 
     }

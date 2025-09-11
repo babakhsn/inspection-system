@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:InspectionApp.ViewModels"
         xmlns:p="clr-namespace:InspectionCore.Processing;assembly=InspectionCore"
-        Title="InspectionApp" Height="700" Width="600">
+        Title="InspectionApp" Height="800" Width="600">
     <!--<Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>-->
@@ -65,6 +65,27 @@
                         <ComboBoxItem Content="Edge Detection" Tag="{x:Static p:FilterType.EdgeDetection}" />
                         <ComboBoxItem Content="Defect Detection" Tag="{x:Static p:FilterType.DefectDetection}" />
                     </ComboBox>
+
+                    <TextBlock Text="Motor Simulation" FontWeight="SemiBold" Margin="0,16,0,6"/>
+                    <TextBlock Text="Pan X (%)" Margin="0,4,0,2"/>
+                    <Slider Minimum="-100" Maximum="100"
+                        Value="{Binding PanXPercent}"
+                        TickFrequency="10" IsSnapToTickEnabled="False"/>
+
+                    <TextBlock Text="Pan Y (%)" Margin="0,8,0,2"/>
+                    <Slider Minimum="-100" Maximum="100"
+                        Value="{Binding PanYPercent}"
+                        TickFrequency="10" IsSnapToTickEnabled="False"/>
+
+                    <TextBlock Text="Zoom (x)" Margin="0,8,0,2"/>
+                    <Slider Minimum="1" Maximum="4"
+                        Value="{Binding ZoomFactor}"
+                        TickFrequency="0.1" IsSnapToTickEnabled="False"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Reset"
+                            Command="{Binding ResetMotorCommand}" Width="80"/>
+                    </StackPanel>
 
                     <!-- Edge Detection parameters -->
                     <StackPanel Margin="0,8,0,0">
