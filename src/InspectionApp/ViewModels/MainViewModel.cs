@@ -25,6 +25,9 @@ namespace InspectionApp.ViewModels
         private double _panXPercent;
         private double _panYPercent;
         private double _zoomFactor = 1.0;
+        private CancellationTokenSource? _autoCaptureCts;
+        private bool _autoCaptureEnabled = true;
+        private int _autoCaptureDebounceMs = 350;
         private BitmapSource? _originalFrame;
         private BitmapSource? _processedFrame;
         private CancellationTokenSource? _linkedCts;
@@ -116,6 +119,12 @@ namespace InspectionApp.ViewModels
             }
         }
 
+        public int AutoCaptureDebounceMs
+        {
+            get => _autoCaptureDebounceMs;
+            set => SetProperty(ref _autoCaptureDebounceMs, Math.Clamp(value, 50, 2000));
+        }
+
         public double PanXPercent
         {
             get => _panXPercent;
@@ -124,6 +133,12 @@ namespace InspectionApp.ViewModels
                 if (SetProperty(ref _panXPercent, value))
                     _motor.SetPanPercent(_panXPercent, _panYPercent);
             }
+        }
+
+        public bool AutoCaptureEnabled
+        {
+            get => _autoCaptureEnabled;
+            set => SetProperty(ref _autoCaptureEnabled, value);
         }
 
         public double PanYPercent
@@ -178,11 +193,33 @@ namespace InspectionApp.ViewModels
             _viewport = viewport;
 
             _camera.FrameCaptured += OnFrameCaptured;
-            _motor.StateChanged += (_, s) =>
+            _motor.StateChanged += async (_, s) =>
             {
                 SetProperty(ref _panXPercent, s.PanXPercent, nameof(PanXPercent));
                 SetProperty(ref _panYPercent, s.PanYPercent, nameof(PanYPercent));
                 SetProperty(ref _zoomFactor, s.ZoomFactor, nameof(ZoomFactor));
+
+                if (!AutoCaptureEnabled) return;
+                if (!IsCapturing) return;
+
+                // Debounce: cancel any pending capture and schedule a new one
+                _autoCaptureCts?.Cancel();
+                _autoCaptureCts?.Dispose();
+                _autoCaptureCts = new System.Threading.CancellationTokenSource();
+                var ct = _autoCaptureCts.Token;
+
+                try
+                {
+                    await Task.Delay(AutoCaptureDebounceMs, ct);
+                    if (ct.IsCancellationRequested) return;
+
+                    await AutoCaptureCurrentAsync(s);  // see below
+                }
+                catch (TaskCanceledException) { /* ignore */ }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Auto-capture debounce error");
+                }
             };
 
             StartCaptureCommand = new RelayCommand(async () => await OnStartCaptureAsync(), CanStart);
@@ -325,6 +362,35 @@ namespace InspectionApp.ViewModels
             PanYPercent = 0;
             ZoomFactor = 1.0;
         }
+
+        private async Task AutoCaptureCurrentAsync(InspectionCore.Motion.MotorState s)
+        {
+            try
+            {
+                var frame = ProcessedFrame ?? LiveFrame;
+                if (frame is null)
+                {
+                    StatusMessage = "Auto-capture skipped (no frame).";
+                    return;
+                }
+
+                var ts = _clock.Now;
+                var fn = $"auto_{ts:yyyyMMdd_HHmmss_fff}_px{Math.Round(s.PanXPercent)}_py{Math.Round(s.PanYPercent)}_z{Math.Round(s.ZoomFactor, 2)}.png";
+                var full = Path.Combine(CaptureDirectory, fn);
+
+                await _frameSaver.SaveAsync(frame, full, "png", 90);
+
+                LastAction = ts;
+                StatusMessage = $"Auto-saved: {fn}";
+                Log.Information("Auto-captured to {Path}", full);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Auto-capture failed");
+                StatusMessage = $"Auto-capture error: {ex.Message}";
+            }
+        }
+
 
 
 

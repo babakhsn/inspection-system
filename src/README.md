@@ -26,4 +26,5 @@ This project simulates a small-scale industrial inspection system using **C# WPF
 - **Day 6:** Added OpenCV filters (None, Grayscale, Edge Detection/Canny). Filter dropdown in UI with live processing and threshold controls for Canny. Processing pipeline stays BGRA32-in/BGRA32-out.
 - **Day 7:** Added basic defect detection (threshold-based scratch highlight using Sobel + Otsu + dilation). UI now displays Raw and Processed frames side-by-side. “Defect Detection” added to filter options.
 - **Day 8:** Added motor simulation (pan/zoom) via IMotorService + MotorSimulator. Introduced EmguViewportTransformer to apply digital pan/zoom to BGRA frames. UI sliders for Pan X/Y and Zoom + Reset. Transform occurs before image filters.
+- **Day 9:** Connected motor movement to auto-capture with a debounced trigger (default 350 ms). Added UI toggle and debounce control. Documented the system with Mermaid UML diagrams in `/docs/architecture.md`.
 

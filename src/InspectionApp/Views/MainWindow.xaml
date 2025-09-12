@@ -66,6 +66,18 @@
                         <ComboBoxItem Content="Defect Detection" Tag="{x:Static p:FilterType.DefectDetection}" />
                     </ComboBox>
 
+                    <TextBlock Text="Auto-Capture" FontWeight="SemiBold" Margin="0,16,0,6"/>
+                    <CheckBox Content="Capture after movement settles"
+                        IsChecked="{Binding AutoCaptureEnabled}" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0">
+                        <TextBlock Text="Debounce (ms)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider Minimum="50" Maximum="2000"
+                              Value="{Binding AutoCaptureDebounceMs}"
+                              Width="150" TickFrequency="50" IsSnapToTickEnabled="True"/>
+                        <TextBlock Text="{Binding AutoCaptureDebounceMs}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    </StackPanel>
+
+
                     <TextBlock Text="Motor Simulation" FontWeight="SemiBold" Margin="0,16,0,6"/>
                     <TextBlock Text="Pan X (%)" Margin="0,4,0,2"/>
                     <Slider Minimum="-100" Maximum="100"
